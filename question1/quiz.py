@@ -1,3 +1,5 @@
+# Authors: Abdulla Al Harun, Mostafa Maassou
+
 import json
 import random
 
