@@ -168,7 +168,12 @@ This helped me understand user-input loops more clearly and apply them confident
 ---
 
 ## Working as a Team
-Working as a team allowed us to divide the work effectively while still reviewing each other's progress. Discussing database structure and program flow early helped avoid mistakes and made the final implementation cleaner. Teamwork also made testing faster and improved the overall quality of the project compared to working alone.
+
+Working as a team allowed us to divide the work effectively while still reviewing each other's progress.  
+Discussing database structure and program flow early helped avoid mistakes and made the final implementation cleaner.  
+Teamwork also made testing faster and improved the overall quality of the project compared to working alone.
+
+We also gained experience in coordinating tasks and resolving conflicts in approaches. For example, when setting up the database and troubleshooting the Docker environment, we combined our ideas to find solutions more quickly. The combination of different perspectives made the code more robust, and the documentation clearer. This collaborative process closely resembled real-world software development workflows.
 
 ---
 
