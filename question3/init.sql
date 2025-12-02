@@ -1,6 +1,6 @@
--- Init script for Question 3
--- Creates database, user, tables and a stored procedure
+--  Author(s): Abdulla Al Harun, Mostafa Maassou
 
+-- Creates database, user, tables and a stored procedure
 DROP DATABASE IF EXISTS quizdb;
 CREATE DATABASE quizdb
     DEFAULT CHARACTER SET utf8mb4

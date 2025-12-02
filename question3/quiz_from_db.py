@@ -1,32 +1,128 @@
 import random
-from question3.quiz_db import get_questions_for_game, get_all_questions
+import mysql.connector
 
-# Letters used for answer options
+# Database connection settings for the quiz Docker setup
+DB_CONFIG = {
+    "host": "localhost",
+    "port": 3308,              # Docker: host 3308 -> container 3306
+    "user": "quizuser",
+    "password": "quizpassword",
+    "database": "quizdb",
+}
+
+
+# ---------- Database helpers ----------
+
+def get_connection():
+    """Open a new connection to the quiz database."""
+    return mysql.connector.connect(**DB_CONFIG)
+
+
+def _rows_to_question_dicts(rows):
+    """
+    Convert rows from the JOIN query into a list of question dicts.
+
+    Each question dict looks like:
+    {
+        "question": "text",
+        "content": ["opt A", "opt B", ...],
+        "correct": index_of_correct_option
+    }
+    """
+    questions_by_id = {}
+
+    for q_id, q_text, correct_idx, opt_idx, opt_text in rows:
+        if q_id not in questions_by_id:
+            questions_by_id[q_id] = {
+                "question": q_text,
+                "content": [],
+                "correct": correct_idx,
+            }
+
+        options = questions_by_id[q_id]["content"]
+
+        # Make sure the list is long enough for this option index
+        if len(options) <= opt_idx:
+            options.extend([""] * (opt_idx + 1 - len(options)))
+
+        options[opt_idx] = opt_text
+
+    return list(questions_by_id.values())
+
+
+def get_questions_for_game(game_id: int):
+    """Return all questions for one game as a list of dicts."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        query = """
+            SELECT
+                q.id,
+                q.question_text,
+                q.correct_option_index,
+                o.option_index,
+                o.option_text
+            FROM questions q
+            JOIN options o ON q.id = o.question_id
+            WHERE q.game_id = %s
+            ORDER BY q.id, o.option_index;
+        """
+        cursor.execute(query, (game_id,))
+        rows = cursor.fetchall()
+        return _rows_to_question_dicts(rows)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_all_questions():
+    """Return questions from all games."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        query = """
+            SELECT
+                q.id,
+                q.question_text,
+                q.correct_option_index,
+                o.option_index,
+                o.option_text
+            FROM questions q
+            JOIN options o ON q.id = o.question_id
+            ORDER BY q.id, o.option_index;
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        return _rows_to_question_dicts(rows)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# ---------- Quiz logic ----------
+
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-NUMBER_OF_GAMES = 5  # we know there are 5 games in the DB
+NUMBER_OF_GAMES = 5  # We know we have 5 games in the DB
 
 
 def choose_mode():
     """
-    Shows the menu and returns a list of questions fetched from the database.
-    Options:
-      1-5: single game
-      6  : all games mixed
-      7  : random 15 from all games
+    Show the main menu and return the list of questions
+    based on the user's choice.
     """
     while True:
         # Fetch questions for each game so we can show counts
         game_questions = []
         for game_id in range(1, NUMBER_OF_GAMES + 1):
-            qs = get_questions_for_game(game_id)
-            game_questions.append(qs)
+            game_questions.append(get_questions_for_game(game_id))
 
         total_all = sum(len(qs) for qs in game_questions)
 
         print("\n=== Main Menu (DB version) ===")
         for i, qs in enumerate(game_questions, start=1):
             print(f"{i}. Game {i} ({len(qs)} questions)")
-
         print(f"{NUMBER_OF_GAMES + 1}. All games mixed ({total_all} questions)")
         print(f"{NUMBER_OF_GAMES + 2}. Random 15 from all games")
 
@@ -35,18 +131,18 @@ def choose_mode():
         if pick.isdigit():
             pick = int(pick)
 
-            # Single game 1-5
+            # Single game
             if 1 <= pick <= NUMBER_OF_GAMES:
-                return list(game_questions[pick - 1])  # copy
+                return list(game_questions[pick - 1])
 
-            # All games full (75)
+            # All questions from all games
             if pick == NUMBER_OF_GAMES + 1:
                 all_q = []
                 for qs in game_questions:
                     all_q.extend(qs)
                 return all_q
 
-            # Random 15 from all games
+            # Random 15 questions from all games
             if pick == NUMBER_OF_GAMES + 2:
                 all_q = []
                 for qs in game_questions:
@@ -59,7 +155,7 @@ def choose_mode():
 
 
 def ask_question(q, number):
-    """Asks one question and returns chosen answer index."""
+    """Ask a single question and return the chosen option index, or None if user quits."""
     print(f"\nQ{number}: {q['question']}")
 
     options = q["content"]
@@ -67,51 +163,53 @@ def ask_question(q, number):
         print(f"  {LETTERS[i]}. {opt}")
 
     while True:
-        ans = input("Your answer (A, B, C, D or Q to quit): ").strip().upper()
+        answer = input("Your answer (A, B, C, D or Q to quit): ").strip().upper()
 
-        if ans == "Q":
+        if answer == "Q":
             return None
 
-        if len(ans) == 1 and ans in LETTERS[: len(options)]:
-            return LETTERS.index(ans)
+        if len(answer) == 1 and answer in LETTERS[: len(options)]:
+            return LETTERS.index(answer)
 
         print("Please choose a valid letter.")
 
 
 def run_quiz(questions):
-    """Main question loop."""
+    """Run the quiz loop and return statistics."""
     random.shuffle(questions)
 
     stats = {
         "total": 0,
         "correct": 0,
-        "incorrect": []
+        "incorrect": [],
     }
 
     for idx, q in enumerate(questions, start=1):
-        user_ans = ask_question(q, idx)
+        user_answer = ask_question(q, idx)
 
-        if user_ans is None:
-            print("Quiz ended early by user.")
+        if user_answer is None:
+            print("Quiz ended by user.")
             break
 
         stats["total"] += 1
 
-        if user_ans == q["correct"]:
+        if user_answer == q["correct"]:
             print("Correct!\n")
             stats["correct"] += 1
         else:
             print("Incorrect.\n")
-            stats["incorrect"].append({
-                "question": q,
-                "your_answer": user_ans
-            })
+            stats["incorrect"].append(
+                {
+                    "question": q,
+                    "your_answer": user_answer,
+                }
+            )
 
     return stats
 
 
 def show_summary(stats):
-    """Prints results at the end."""
+    """Print a summary of the quiz results."""
     total = stats["total"]
     correct = stats["correct"]
     wrong = total - correct

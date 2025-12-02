@@ -1,3 +1,11 @@
+"""
+ Authors: Abdulla Al Harun, Mostafa Maassou
+ Notes:
+     - The default MySQL port is 3306.
+     - We use 3308 because our local MySQL instance runs inside
+       Docker with a port mapping. If your MySQL runs on 3306,
+       simply change "port": 3308 to 3306 below.
+"""
 import json
 import mysql.connector
 
