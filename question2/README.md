@@ -21,7 +21,13 @@ PyQuizApp is a terminal-based quiz program created for the Python & Databases co
 
 The second section extends the quiz to use a MySQL database instead of the JSON file. A database schema is created, the JSON data is imported into MySQL, and the quiz questions are retrieved and displayed using SQL queries.
 
-This project demonstrates working with structured data, input validation, Python functions, SQL schema design, and basic database interaction.
+The project demonstrates:
+- JSON handling  
+- Input validation  
+- Python functions  
+- SQL table design  
+- Stored procedures  
+- Reading data from a relational database  
 
 ---
 
@@ -35,7 +41,7 @@ This project demonstrates working with structured data, input validation, Python
 
 ### Requirements
 - Python 3.10+
-- MySQL Server
+- Docker Desktop (for MySQL and Adminer)  
 - `mysql-connector-python` (required for database version)
 
 ### Installation
@@ -75,26 +81,55 @@ python quiz.py
 ---
 
 ### Running Question 3 (Database Version)
-
-#### 1. Create the database
+To run the database version of the quiz, you must have MySQL running in Docker, initialize the database, import the data, and then start the quiz.
+#### 1. Start the MySQL container (Docker)
 
 ```
-mysql -u root -p < init.sql
+localhost:3308  →  mysql:3306
+```
+Start the container:
+```
+docker run --name quiz-mysql ^
+  -e MYSQL_ROOT_PASSWORD=quizroot ^
+  -e MYSQL_DATABASE=quizdb ^
+  -p 3308:3306 -d mysql:8
+```
+(Optional) Start Adminer for inspecting the database:
+
+```
+docker run --name quiz-adminer -p 8081:8080 -d adminer
+```
+You can now access Adminer at:
+```
+http://localhost:8081
 ```
 
+#### 2. Initialize the database
+Step 1 — Copy the SQL file into the container:
 
-#### 2. Import JSON questions into MySQL
+```
+docker cp question3/init.sql quiz-mysql:/init.sql
+```
+
+Step 2 — Execute it inside MySQL:
+```
+docker exec -it quiz-mysql sh -c "mysql -uroot -pquizroot < /init.sql"
+```
+This creates:
+- The quizdb database
+- Tables: games, questions, options
+- Stored procedure
+
+step 3. Import the questions from JSON
+
 ```
 python question3/import.py
 ```
+step 4. Run the MySQL-based quiz
 
-
-#### 3. Run the database version of the quiz
 ```
-python question3/quiz_db.py
+python question3/quiz_from_db.py
 ```
-
-
 ---
 
 ## Additional Libraries Used
